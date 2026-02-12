@@ -77,6 +77,25 @@ def _format_cleaning_log_entry(entry: str | CleaningLogEntry) -> str:
     return f"- {entry}"
 
 
+def format_reasoning_log(reasoning_log: list[dict]) -> str:
+    """Format the agent's reasoning log into Markdown content."""
+    if not reasoning_log:
+        return "No reasoning log available.\n"
+
+    lines: list[str] = []
+    lines.append("## Agent Reasoning Log\n")
+    lines.append("This section shows the step-by-step reasoning process of the AI agent.\n")
+
+    for i, entry in enumerate(reasoning_log, 1):
+        agent = entry.get("agent", "unknown")
+        reasoning = entry.get("reasoning", "")
+        lines.append(f"### Step {i}: {agent}\n")
+        lines.append(reasoning)
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 def _format_eda_results(eda_results: dict | str) -> str:
     """Format EDA results dict into Markdown content."""
     if not isinstance(eda_results, dict):
@@ -202,5 +221,186 @@ def generate_report(
     report_path = os.path.join(output_dir, "report.md")
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report_content)
+
+    return report_path
+
+
+_NODE_LABELS = {
+    "load_csv_node": "Load CSV",
+    "inspect_node": "Inspect Data",
+    "clean_decision_node": "Cleaning Decision",
+    "clean_node": "Clean Data",
+    "eda_node": "Exploratory Data Analysis",
+    "report_node": "Generate Report",
+}
+
+
+def _format_reasoning_text(raw: str) -> str:
+    """Extract human-readable text from raw LLM reasoning output.
+
+    Handles three formats:
+    - Plain strings (returned as-is)
+    - Python repr of list-of-dicts with 'type'/'text' keys (Bedrock/Anthropic)
+    - Strings containing <thinking> XML tags
+    - Prefixed strings like "Iteration 1: [...]"
+    """
+    import ast
+    import re
+
+    text = str(raw).strip()
+    if not text:
+        return ""
+
+    # Handle "Iteration N: <content>" prefix from clean_node
+    iter_match = re.match(r"^(Iteration \d+):\s*(.*)$", text, re.DOTALL)
+    if iter_match:
+        prefix = iter_match.group(1)
+        remainder = iter_match.group(2).strip()
+        formatted_remainder = _format_reasoning_text(remainder)
+        if formatted_remainder:
+            return f"**{prefix}**\n\n{formatted_remainder}"
+        return f"**{prefix}**"
+
+    # Try to parse as a Python literal (list of dicts from Bedrock responses)
+    parsed_items: list | None = None
+    if text.startswith("[") and text.endswith("]"):
+        try:
+            parsed_items = ast.literal_eval(text)
+        except (ValueError, SyntaxError):
+            pass
+
+    parts: list[str] = []
+    tool_calls: list[str] = []
+
+    if isinstance(parsed_items, list):
+        for item in parsed_items:
+            if not isinstance(item, dict):
+                continue
+            if item.get("type") == "text":
+                t = item.get("text", "").strip()
+                if t:
+                    parts.append(t)
+            elif item.get("type") == "tool_use":
+                name = item.get("name", "unknown")
+                args = item.get("input", {})
+                if args:
+                    args_str = ", ".join(f"{k}={v!r}" for k, v in args.items())
+                    tool_calls.append(f"`{name}({args_str})`")
+                else:
+                    tool_calls.append(f"`{name}()`")
+    else:
+        parts.append(text)
+
+    # Clean up <thinking> tags and escaped newlines
+    cleaned: list[str] = []
+    for part in parts:
+        # Replace literal \n with actual newlines
+        part = part.replace("\\n", "\n")
+        # Extract content from <thinking> tags
+        thinking_matches = re.findall(r"<thinking>(.*?)</thinking>", part, re.DOTALL)
+        if thinking_matches:
+            for match in thinking_matches:
+                cleaned.append(match.strip())
+            remainder = re.sub(r"<thinking>.*?</thinking>", "", part, flags=re.DOTALL).strip()
+            if remainder:
+                cleaned.append(remainder)
+        else:
+            # Try to extract plan from JSON decision blocks
+            # Strip markdown code fences first
+            stripped = re.sub(r"```(?:json)?\s*", "", part).strip()
+            stripped = re.sub(r"```\s*$", "", stripped).strip()
+            json_match = re.search(r"\{.*\}", stripped, re.DOTALL)
+            if json_match:
+                try:
+                    import json as _json
+                    decision = _json.loads(json_match.group(), strict=False)
+                    plan = decision.get("plan", "")
+                    needs = decision.get("needs_cleaning")
+                    decision_parts: list[str] = []
+                    if needs is not None:
+                        decision_parts.append(
+                            "**Decision:** Cleaning needed"
+                            if needs
+                            else "**Decision:** No cleaning needed"
+                        )
+                    if plan:
+                        decision_parts.append(f"\n{plan}")
+                    if decision_parts:
+                        cleaned.append("\n".join(decision_parts))
+                    else:
+                        cleaned.append(part)
+                except (ValueError, KeyError):
+                    cleaned.append(part)
+            else:
+                cleaned.append(part)
+
+    output: list[str] = []
+    reasoning_text = "\n\n".join(c for c in cleaned if c)
+    if reasoning_text:
+        output.append(reasoning_text)
+
+    if tool_calls:
+        output.append("\n**Tools called:**\n")
+        for tc in tool_calls:
+            output.append(f"- {tc}")
+
+    return "\n".join(output)
+
+
+def generate_reasoning_report(
+    reasoning_log: list[dict],
+    errors: list[str],
+    output_dir: str,
+) -> str:
+    """Generate a Markdown report of the agent's reasoning steps.
+
+    Args:
+        reasoning_log: List of dicts with 'timestamp', 'agent', 'reasoning'.
+        errors: List of error strings encountered during the run.
+        output_dir: Directory to save the report.
+
+    Returns:
+        The path to the saved reasoning report file.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    sections: list[str] = []
+    sections.append("# Agent Reasoning Log\n")
+
+    if not reasoning_log:
+        sections.append("No reasoning entries recorded.\n")
+    else:
+        for i, entry in enumerate(reasoning_log, 1):
+            agent = entry.get("agent", "unknown")
+            label = _NODE_LABELS.get(agent, agent)
+            timestamp = entry.get("timestamp", "")
+            reasoning = entry.get("reasoning", "")
+
+            sections.append(f"## Step {i}: {label}\n")
+            if timestamp:
+                # Format ISO timestamp to something friendlier
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(timestamp)
+                    friendly = dt.strftime("%H:%M:%S")
+                    sections.append(f"*{friendly} UTC*\n")
+                except (ValueError, TypeError):
+                    sections.append(f"*{timestamp}*\n")
+
+            formatted = _format_reasoning_text(reasoning)
+            if formatted:
+                sections.append(f"{formatted}\n")
+
+    if errors:
+        sections.append("---\n")
+        sections.append("## Errors\n")
+        for err in errors:
+            sections.append(f"- {err}")
+        sections.append("")
+
+    content = "\n".join(sections)
+    report_path = os.path.join(output_dir, "reasoning.md")
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write(content)
 
     return report_path

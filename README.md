@@ -129,6 +129,28 @@ src/
 uv run pytest
 ```
 
+## R Wrapper
+
+R users can call the agent from RStudio using `reticulate`. See `R/eda_agent.R` for the wrapper and `R/demo.Rmd` for a walkthrough notebook.
+
+```r
+library(reticulate)
+use_virtualenv(".venv", required = TRUE)
+source("R/eda_agent.R")
+
+# Configure LLM
+eda_setup(provider = "bedrock", region = "eu-north-1")
+
+# Individual tools
+df <- eda_load_csv("data.csv")
+issues <- eda_inspect(df)
+result <- eda_clean(df)
+eda <- eda_analyze(result$df)
+
+# Or run the full autonomous pipeline
+eda_run("data.csv")
+```
+
 ## License
 
 MIT

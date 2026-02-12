@@ -1,0 +1,143 @@
+---
+title: "AI Agents Demo: Autonomous Data Cleaning & EDA"
+subtitle: "R Wrapper"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = TRUE, warning = FALSE)
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+```
+
+## Setup
+
+This notebook uses `reticulate` to call the Python agent from R.
+Make sure the Python virtual environment is set up first (see README).
+
+```{r}
+library(reticulate)
+
+# Point to the project's Python venv
+use_virtualenv("../.venv", required = TRUE)
+
+# Load the R wrapper functions
+source("eda_agent.R")
+```
+
+## Part 1: Configure the LLM
+
+Pick your provider. For AWS Bedrock (no API key needed if AWS CLI is configured):
+
+```{r}
+eda_setup(provider = "bedrock", region = "eu-north-1")
+```
+
+Other options:
+```r
+# eda_setup(provider = "openai")
+# eda_setup(provider = "anthropic")
+# eda_setup(provider = "groq")
+```
+
+## Part 2: Load a CSV
+
+```{r}
+csv_path <- "your_data.csv"  # <-- change this!
+
+df <- eda_load_csv(csv_path)
+cat(sprintf("Loaded: %d rows x %d columns\n", nrow(df), ncol(df)))
+head(df)
+```
+
+## Part 3: Inspect the Data
+
+```{r}
+inspection <- eda_inspect(df)
+
+# Show the profile (first 500 chars)
+cat(substr(inspection$profile, 1, 500), "\n...")
+```
+
+```{r}
+# Show detected issues
+issues <- inspection$issues
+
+cat("Missing values:\n")
+for (col in names(issues$missing_pct)) {
+  pct <- issues$missing_pct[[col]]
+  if (pct > 0) cat(sprintf("  %s: %.1f%%\n", col, pct))
+}
+
+cat(sprintf("\nDuplicate rows: %d\n", issues$duplicate_count))
+
+if (length(issues$zero_variance) > 0) {
+  cat(sprintf("Zero variance: %s\n", paste(issues$zero_variance, collapse = ", ")))
+}
+
+if (length(issues$high_cardinality) > 0) {
+  cat(sprintf("High cardinality: %s\n", paste(issues$high_cardinality, collapse = ", ")))
+}
+```
+
+## Part 4: Clean the Data (Manual)
+
+```{r}
+result <- eda_clean(df)
+cleaned <- result$df
+
+cat("Cleaning log:\n")
+for (msg in result$log) cat(sprintf("  - %s\n", msg))
+
+cat(sprintf("\nCleaned shape: %d rows x %d columns\n", nrow(cleaned), ncol(cleaned)))
+head(cleaned)
+```
+
+## Part 5: EDA
+
+```{r}
+eda <- eda_analyze(cleaned)
+
+cat("=== Numeric Statistics ===\n")
+cat(eda$numeric_stats, "\n")
+
+cat("\n=== Categorical Statistics ===\n")
+cat(eda$categorical_stats, "\n")
+
+cat("\n=== Correlation ===\n")
+cat(eda$correlation, "\n")
+```
+
+```{r, results='asis'}
+if (length(eda$figure_paths) > 0) {
+  cat("### Generated Figures\n\n")
+  for (path in eda$figure_paths) {
+    cat(sprintf("![%s](%s)\n\n", basename(path), path))
+  }
+}
+```
+
+## Part 6: Full Agent Pipeline
+
+This runs the complete LLM-driven pipeline — the agent decides what to clean and how.
+
+```{r}
+result <- eda_run(csv_path)
+```
+
+```{r, results='asis'}
+# Display the report
+if (!is.null(result$report_path) && file.exists(result$report_path)) {
+  report <- readLines(result$report_path, warn = FALSE)
+  cat(paste(report, collapse = "\n"))
+}
+```
+
+## Part 7: View Agent Reasoning
+
+```{r, results='asis'}
+reasoning_path <- file.path("output", "reasoning.md")
+if (file.exists(reasoning_path)) {
+  reasoning <- readLines(reasoning_path, warn = FALSE)
+  cat(paste(reasoning, collapse = "\n"))
+}
+```

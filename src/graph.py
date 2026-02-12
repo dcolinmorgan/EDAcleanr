@@ -21,7 +21,7 @@ from langchain_core.tools import tool
 
 from src.csv_loader import load_csv
 from src.models import AgentState
-from src.report_generator import generate_report
+from src.report_generator import generate_report, generate_reasoning_report
 from src.tools.cleaning import (
     convert_dtypes,
     drop_duplicates,
@@ -627,6 +627,13 @@ def report_node(state: AgentState) -> AgentState:
             state,
             "report_node",
             f"Report generated at {report_path}.",
+        )
+
+        # Also generate the reasoning log report
+        generate_reasoning_report(
+            reasoning_log=state.get("reasoning_log") or [],
+            errors=state.get("errors") or [],
+            output_dir=output_dir,
         )
 
     except Exception as exc:
