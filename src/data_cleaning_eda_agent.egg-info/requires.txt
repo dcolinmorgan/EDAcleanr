@@ -1,0 +1,16 @@
+langchain>=0.3
+langgraph
+langchain-openai
+langchain-anthropic
+langchain-groq
+langchain-aws
+pandas
+matplotlib
+seaborn
+chardet
+openai
+anthropic
+groq
+hypothesis
+pytest
+pytest-cov

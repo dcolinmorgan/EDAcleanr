@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: data-cleaning-eda-agent
+Version: 0.1.0
+Summary: Autonomous Data Cleaning & EDA Agent built with LangChain/LangGraph
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: langchain>=0.3
+Requires-Dist: langgraph
+Requires-Dist: langchain-openai
+Requires-Dist: langchain-anthropic
+Requires-Dist: langchain-groq
+Requires-Dist: langchain-aws
+Requires-Dist: pandas
+Requires-Dist: matplotlib
+Requires-Dist: seaborn
+Requires-Dist: chardet
+Requires-Dist: openai
+Requires-Dist: anthropic
+Requires-Dist: groq
+Requires-Dist: hypothesis
+Requires-Dist: pytest
+Requires-Dist: pytest-cov

@@ -1,0 +1,2 @@
+[console_scripts]
+eda-agent = src.main:main

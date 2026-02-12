@@ -1,0 +1,98 @@
+\documentclass{beamer}
+\usetheme{Madrid} % or default, Copenhagen, etc.
+\usecolortheme{beaver}
+\usepackage{graphicx} % if adding images later
+
+\title{Introduction to AI Agents and Large Language Models}
+\subtitle{For Non-Experts}
+\author{Daniel}
+\date{\friday}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}{What Are Large Language Models (LLMs)?}
+  \begin{itemize}
+    \item Very large AI trained on almost all text on the internet
+    \item Core skill: predict the next word (extremely well)
+    \item Result: can write emails, explain concepts, translate, write code, answer questions
+  \end{itemize}
+  \vspace{1em}
+  \textbf{Examples everyone knows:}
+  \begin{itemize}
+    \item ChatGPT, Claude, Grok, Gemini
+  \end{itemize}
+  \vspace{1em}
+  \small Like a super-smart autocomplete that “understands” a huge amount of knowledge.
+\end{frame}
+
+\begin{frame}{From Chatbot to Agent: The Big Jump}
+  \begin{columns}
+    \column{0.48\textwidth}
+      \textbf{Normal LLM (Chat):}
+      \begin{itemize}
+        \item You ask a question
+        \item It gives one answer
+        \item Conversation ends (or continues linearly)
+      \end{itemize}
+    \column{0.48\textwidth}
+      \textbf{AI Agent:}
+      \begin{itemize}
+        \item Has a goal
+        \item Thinks step-by-step
+        \item Uses tools (search, code, files, calculators…)
+        \item Remembers previous steps
+        \item Loops until goal achieved
+      \end{itemize}
+  \end{columns}
+  \vspace{1em}
+  \centering
+  \Large Agent = LLM + Tools + Memory + Reasoning Loop
+\end{frame}
+
+\begin{frame}{How an AI Agent Actually Works}
+  \begin{center}
+    \textbf{Simple Loop Diagram}
+  \end{center}
+  \vspace{0.5em}
+  \begin{enumerate}
+    \item Get a clear goal (e.g., “Clean this messy CSV and summarize insights”)
+    \item LLM thinks: “What do I know? What do I need to do first?”
+    \item Choose action/tool (e.g., load file, check missing values)
+    \item Execute → see result
+    \item Think again: “Did that work? Next step?”
+    \item Repeat until done → final output (report, cleaned data, etc.)
+  \end{enumerate}
+  \vspace{1em}
+  \small This is often called ReAct (Reason + Act) pattern.
+\end{frame}
+
+\begin{frame}{Real-World Agent Examples (Simple & Useful)}
+  \begin{itemize}
+    \item Research agent: searches web, reads pages, writes summary report
+    \item Data agent: loads CSV → finds problems → cleans → makes charts → explains insights
+    \item Coding agent: writes, tests, fixes Python code for you
+    \item Travel agent: checks flights, hotels, builds itinerary
+  \end{itemize}
+  \vspace{1em}
+  \textbf{Today’s demo:} We build a data-cleaning \& EDA agent that works mostly by itself.
+\end{frame}
+
+\begin{frame}{Why Should Data Scientists Care?}
+  \begin{block}{Agents = Your New Super Teammate}
+    \begin{itemize}
+      \item Automate boring / repetitive work (data wrangling, basic EDA)
+      \item Handle multi-step problems without constant supervision
+      \item Scale analysis: one person → many parallel agents
+      \item Evolve fast: better LLMs → instantly smarter agents
+    \end{itemize}
+  \end{block}
+  \vspace{1em}
+  \centering
+  \Large Limits exist (hallucinations, unsafe code, cost), but huge potential.
+  \vfill
+  \small Let’s build one right now!
+\end{frame}
+
+\end{document}
